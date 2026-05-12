@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+  <!-- ============================================================
+       FUENTES EXTERNAS
+       Carga la tipografía "Syne Mono" desde Google Fonts.
+       Se usa para todo el texto de la interfaz.
+  ============================================================ -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne+Mono&display=swap" rel="stylesheet">
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ecualizador de Incomodidad</title>
+
+  <style>
+
+    /* ============================================================
+       VARIABLES GLOBALES DE DISEÑO
+       Define la paleta de colores y la fuente principal.
+       Cambiar estos valores afecta toda la interfaz de una vez.
+    ============================================================ */
+    :root {
+      --bg:        #0e0e0f;   /* Color de fondo general (negro profundo) */
+      --surface:   #18181a;   /* Color de fondo de las tarjetas */
+      --border:    #2a2a2e;   /* Color de los bordes */
+      --accent:    #d1d1d1;   /* Color de acento (gris claro) */
+      --muted:     #c9c9c9;   /* Color secundario suave */
+      --text:      #dddddd;   /* Color principal del texto */
+      --text-dim:  #dddddd;   /* Color de texto atenuado */
+      --font-mono: 'Syne Mono', Syne Mono, monospace; /* Fuente principal */
+    }
+
+    /* ============================================================
+       RESET Y ESTILOS BASE
+       Elimina márgenes y padding predeterminados del navegador.
+       Define el layout general de la página (columna centrada).
+    ============================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 60px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ============================================================
+       ENCABEZADO
+       Título principal y subtítulo descriptivo de la experiencia.
+    ============================================================ */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    header h1 {
+      font-size: clamp(1rem, 3vw, 1.3rem);
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.25em;
+      color: var(--accent);
+      opacity: 0.85;
+    }
+
+    header p {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 6px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    /* ============================================================
+       TEXTO DE ADVERTENCIA
+       Mensaje de advertencia sensorial que aparece debajo de la grilla.
+    ============================================================ */
+    .warning-text {
+      margin: 80px auto 32px;
+      max-width: 780px;
+      color: #afef00;
+      opacity: 0.9;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      text-align: center;
+      letter-spacing: 0.03em;
+    }
+
+    /* ============================================================
+       GRILLA DE TARJETAS DE SENSORES
+       Organiza las 6 tarjetas en 3 columnas.
+       Se adapta a 2 columnas en pantallas medianas y 1 en móviles.
+    ============================================================ */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      width: 100%;
+      max-width: 780px;
+    }
+
+    /* ============================================================
+       TARJETA INDIVIDUAL DE SENSOR
+       Contenedor de cada ecualizador (ícono + slider + etiquetas).
+       El ::before agrega una línea decorativa en la parte superior.
+    ============================================================ */
+    .sensor-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 20px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Transición suave del color de fondo al mover el slider */
+    .equalizer-container {
+      transition: background-color 0.35s ease;
+    }
+
+    /* Línea decorativa superior de cada tarjeta */
+    .sensor-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.25;
+    }
+
+    /* Nombre del sensor (ej: "Temperatura") */
+    .sensor-label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      align-self: flex-start;
+      transition: color 0.3s ease;
+    }
+
+    /* Número del valor actual (ej: "075") */
+    .sensor-value {
+      font-size: 0.65rem;
+      color: var(--accent);
+      opacity: 0.7;
+      position: absolute;
+      top: 20px;
+      right: 16px;
+      transition: color 0.3s ease;
+    }
+
+    /* Contenedor cuadrado para el ícono SVG animado */
+    .canvas-wrap {
+      width: 100px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    canvas.circle-canvas {
+      display: block;
+    }
+
+    /* ============================================================
+       SLIDER (CONTROL DESLIZANTE)
+       Estilo personalizado del input range.
+       El color de la pista y el thumb se actualizan via JS
+       usando las custom properties --slider-active, --slider-thumb y --pct.
+    ============================================================ */
+    .slider-wrap {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(
+        to right,
+        var(--slider-active, var(--accent)) 0%,
+        var(--slider-active, var(--accent)) var(--pct, 0%),
+        var(--border) var(--pct, 0%),
+        var(--border) 100%
+      );
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--slider-thumb, var(--accent));
+      border: none;
+      box-shadow: 0 0 6px rgba(200,216,255,0.5);
+      transition: transform 0.15s, background 0.3s ease;
+    }
+
+    input[type="range"]:hover::-webkit-slider-thumb {
+      transform: scale(1.4);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--slider-thumb, var(--accent));
+      border: none;
+      transition: background 0.3s ease;
+    }
+
+    /* ============================================================
+       ETIQUETA DE ESTADO
+       Muestra el estado actual del sensor: reposo / saturación / colapso.
+       Cambia de color según el nivel.
+    ============================================================ */
+    .state-label {
+      font-size: 0.55rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-align: right;
+      transition: color 0.4s;
+    }
+
+    .state-label.saturacion { color: #a0b8ff; } /* Azul suave en saturación */
+    .state-label.colapso    { color: #ff6a6a; } /* Rojo en colapso */
+
+    /* ============================================================
+       DISEÑO RESPONSIVO
+       Ajuste de columnas para pantallas pequeñas.
+    ============================================================ */
+    @media (max-width: 600px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 380px) { .grid { grid-template-columns: 1fr; } }
+
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       ESTRUCTURA HTML PRINCIPAL
+       El encabezado y la grilla de tarjetas se definen aquí.
+       Las tarjetas se generan dinámicamente desde JavaScript.
+  ============================================================ -->
+  <header>
+    <h1>Ecualizador de la Incomodidad Invisible</h1>
+    <p>Sistema de monitoreo sensorial de variables externas durante la experiencia gastronómica</p>
+  </header>
+
+  <!-- Contenedor vacío que JS puebla con las 6 tarjetas de sensores -->
+  <div class="grid" id="grid"></div>
+
+  <p class="warning-text">
+    Esta experiencia contiene estímulos visuales intensos, movimientos rápidos y efectos de vibración
+    que podrían generar incomodidad en personas fotosensibles o con sensibilidad sensorial.
+    Se recomienda discreción al interactuar con los ecualizadores.
+  </p>
+
+  <script>
+
+    /* ============================================================
+       CONFIGURACIÓN GLOBAL
+       Lista de los 6 sensores con su ID interno y nombre visible.
+       Umbrales que definen los 3 estados del sistema:
+         0–29  → reposo
+         30–69 → saturación
+         70–100 → colapso
+    ============================================================ */
+    const SENSORS = [
+      { id: 'temperatura', label: 'Temperatura' },
+      { id: 'sonido',      label: 'Sonido'      },
+      { id: 'espacio',     label: 'Espacio'     },
+      { id: 'iluminacion', label: 'Iluminación' },
+      { id: 'aglomeracion',label: 'Aglomeración'},
+      { id: 'olor',        label: 'Olor'        },
+    ];
+
+    const BASE_BG      = '#18181a'; /* Color de fondo base de las tarjetas */
+    const CANVAS_SIZE  = 100;       /* Tamaño del canvas de los íconos */
+    const CIRCLE_R     = 32;        /* Radio del círculo en el canvas */
+    const CENTER       = 50;        /* Centro del canvas */
+    const THRESH_SAT   = 30;        /* Umbral: inicio de saturación */
+    const THRESH_GLITCH= 70;        /* Umbral: inicio de colapso */
+
+    /* Estado actual de cada sensor (valor 0–100 y fase de animación) */
+    const sensorStates = {};
+
+
+    /* ============================================================
+       MOTOR DE AUDIO (Web Audio API)
+       Cada sensor tiene su propio nodo de audio con un sonido
+       característico. El volumen y los parámetros se modulan
+       según el valor del slider (0 = silencio, 100 = máxima intensidad).
+    ============================================================ */
+    let audioCtx;
+    const audioNodes = {};
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        SENSORS.forEach(s => {
+          audioNodes[s.id] = createAudioNode(s.id);
+        });
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    document.addEventListener('touchstart', initAudio, { once: true });
+    document.addEventListener('click', initAudio, { once: true });
+
+    /* Crea y conecta el grafo de audio para un sensor dado */
+    function createAudioNode(id) {
+      const n = {};
+
+      if (id === 'temperatura') {
+        /* Oscilador de sierra — evoca calor sofocante y zumbido */
+        const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+        osc.type = 'sawtooth'; osc.frequency.value = 60; gain.gain.value = 0;
+        osc.connect(gain); gain.connect(audioCtx.destination); osc.start();
+        n.osc = osc; n.gain = gain;
+
+      } else if (id === 'sonido') {
+        /* Ruido blanco filtrado con pasa-banda — simula ruido ambiental */
+        const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*2, audioCtx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i=0; i<d.length; i++) d[i] = Math.random()*2-1;
+        const src  = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+        const filt = audioCtx.createBiquadFilter(); filt.type = 'bandpass'; filt.frequency.value = 1200;
+        const gain = audioCtx.createGain(); gain.gain.value = 0;
+        src.connect(filt); filt.connect(gain); gain.connect(audioCtx.destination); src.start();
+        n.filter = filt; n.gain = gain;
+
+      } else if (id === 'espacio') {
+        /* Sub-bajo + rugido distorsionado + LFO de amplitud
+           Diseñado para sentir claustrofobia en espacios reducidos */
+        const subOsc = audioCtx.createOscillator();
+        subOsc.type = 'sine'; subOsc.frequency.value = 30;
+
+        const rugOsc = audioCtx.createOscillator();
+        rugOsc.type = 'sawtooth'; rugOsc.frequency.value = 78;
+
+        const lpf = audioCtx.createBiquadFilter();
+        lpf.type = 'lowpass'; lpf.frequency.value = 300; lpf.Q.value = 8;
+
+        /* Distorsionador con curva de wave shaper */
+        const dist  = audioCtx.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let i=0; i<256; i++) {
+          const x = (i*2)/256-1;
+          curve[i] = (Math.PI+200)*x/(Math.PI+200*Math.abs(x));
+        }
+        dist.curve = curve;
+
+        /* LFO (oscilador de baja frecuencia) que modula el volumen maestro */
+        const lfo  = audioCtx.createOscillator();
+        lfo.type   = 'sine'; lfo.frequency.value = 0.25;
+        const lfoG = audioCtx.createGain(); lfoG.gain.value = 0;
+
+        const master = audioCtx.createGain(); master.gain.value = 0;
+        const subG   = audioCtx.createGain(); subG.gain.value   = 1.4;
+        const rugG   = audioCtx.createGain(); rugG.gain.value   = 0.7;
+
+        subOsc.connect(subG); subG.connect(master);
+        rugOsc.connect(lpf); lpf.connect(dist); dist.connect(rugG); rugG.connect(master);
+        lfo.connect(lfoG); lfoG.connect(master.gain);
+        master.connect(audioCtx.destination);
+
+        subOsc.start(); rugOsc.start(); lfo.start();
+        n.subOsc = subOsc; n.rugOsc = rugOsc; n.lpf = lpf;
+        n.lfo = lfo; n.lfoG = lfoG;
+        n.subG = subG; n.rugG = rugG; n.gain = master;
+
+      } else if (id === 'iluminacion') {
+        /* Oscilador cuadrado de alta frecuencia modulado por LFO
+           Simula el destello molesto de luces parpadeantes */
+        const osc  = audioCtx.createOscillator(), lfo  = audioCtx.createOscillator();
+        const lfoG = audioCtx.createGain(),        gain = audioCtx.createGain();
+        osc.type   = 'square'; osc.frequency.value = 3200;
+        lfo.type   = 'sine'; lfo.frequency.value   = 8; lfoG.gain.value = 600; gain.gain.value = 0;
+        lfo.connect(lfoG); lfoG.connect(osc.frequency);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); lfo.start();
+        n.osc = osc; n.lfo = lfo; n.gain = gain;
+
+      } else if (id === 'aglomeracion') {
+        /* 6 osciladores senoidales en frecuencias levemente distintas
+           crean la sensación de voces/ruido de multitud */
+        const master = audioCtx.createGain(); master.gain.value = 0; master.connect(audioCtx.destination);
+        n.oscs = [];
+        for (let i=0; i<6; i++) {
+          const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+          osc.type = 'sine'; osc.frequency.value = 180 + i*47 + Math.random()*30; g.gain.value = 0.15;
+          osc.connect(g); g.connect(master); osc.start(); n.oscs.push(osc);
+        }
+        n.gain = master;
+
+      } else if (id === 'olor') {
+        /* Oscilador triangular grave con LFO de frecuencia lenta
+           Evoca una sensación densa y nauseabunda */
+        const osc  = audioCtx.createOscillator(), lfo  = audioCtx.createOscillator();
+        const lfoG = audioCtx.createGain(),        gain = audioCtx.createGain();
+        osc.type   = 'triangle'; osc.frequency.value = 80;
+        lfo.type   = 'sine'; lfo.frequency.value = 0.4; lfoG.gain.value = 30; gain.gain.value = 0;
+        lfo.connect(lfoG); lfoG.connect(osc.frequency);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); lfo.start();
+        n.osc = osc; n.gain = gain;
+      }
+
+      return n;
+    }
+
+    /* Actualiza los parámetros de audio de un sensor según el valor del slider */
+    function updateAudio(id, value) {
+      const n = audioNodes[id]; if (!n || !audioCtx) return;
+      const gain = n.gain, now = audioCtx.currentTime;
+
+      /* --- REPOSO: apagar sonido --- */
+      if (value < THRESH_SAT) {
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setTargetAtTime(0, now, 0.1);
+        if (id==='espacio' && n.lfoG) n.lfoG.gain.setTargetAtTime(0, now, 0.1);
+        return;
+      }
+
+      /* --- SATURACIÓN (30–69): sonido moderado y creciente --- */
+      if (value < THRESH_GLITCH) {
+        const t = (value - THRESH_SAT) / (THRESH_GLITCH - THRESH_SAT); /* 0→1 dentro del rango */
+        if (id==='temperatura') {
+          gain.gain.setTargetAtTime(t*0.08, now, 0.2);
+          n.osc.frequency.setTargetAtTime(60+t*80, now, 0.3);
+        } else if (id==='sonido') {
+          gain.gain.setTargetAtTime(t*0.12, now, 0.2);
+          n.filter.frequency.setTargetAtTime(800+t*1200, now, 0.3);
+        } else if (id==='espacio') {
+          gain.gain.setTargetAtTime(t*0.20, now, 0.4);
+          n.subOsc.frequency.setTargetAtTime(28+t*8, now, 0.5);
+          n.rugOsc.frequency.setTargetAtTime(75+t*15, now, 0.4);
+          n.lpf.frequency.setTargetAtTime(200+t*300, now, 0.4);
+          n.lfoG.gain.setTargetAtTime(t*0.12, now, 0.5);
+          n.lfo.frequency.setTargetAtTime(0.2+t*0.3, now, 0.5);
+        } else if (id==='iluminacion') {
+          gain.gain.setTargetAtTime(t*0.04, now, 0.2);
+          n.lfo.frequency.setTargetAtTime(4+t*12, now, 0.3);
+        } else if (id==='aglomeracion') {
+          gain.gain.setTargetAtTime(t*0.15, now, 0.2);
+          n.oscs.forEach((o,i) => o.frequency.setTargetAtTime(160+i*40+t*60, now, 0.4));
+        } else if (id==='olor') {
+          gain.gain.setTargetAtTime(t*0.18, now, 0.2);
+          n.osc.frequency.setTargetAtTime(70+t*25, now, 0.4);
+        }
+
+      /* --- COLAPSO (70–100): sonido intenso y distorsionado --- */
+      } else {
+        const t = (value - THRESH_GLITCH) / (100 - THRESH_GLITCH); /* 0→1 dentro del rango */
+        if (id==='temperatura') {
+          gain.gain.setTargetAtTime(0.08+t*0.15, now, 0.1);
+          n.osc.frequency.setTargetAtTime(140+t*200, now, 0.1);
+        } else if (id==='sonido') {
+          gain.gain.setTargetAtTime(0.12+t*0.2, now, 0.1);
+          n.filter.frequency.setTargetAtTime(2000+t*4000, now, 0.1);
+        } else if (id==='espacio') {
+          gain.gain.setTargetAtTime(0.25+t*0.10, now, 0.08);
+          n.subOsc.frequency.setTargetAtTime(22+t*10, now, 0.2);
+          n.rugOsc.frequency.setTargetAtTime(90+t*40, now, 0.15);
+          n.lpf.frequency.setTargetAtTime(500+t*800, now, 0.2);
+          n.lpf.Q.value = 12+t*8;
+          n.lfoG.gain.setTargetAtTime(0.18+t*0.2, now, 0.1);
+          n.lfo.frequency.setTargetAtTime(0.5+t*3.5, now, 0.2);
+        } else if (id==='iluminacion') {
+          gain.gain.setTargetAtTime(0.04+t*0.1, now, 0.05);
+          n.lfo.frequency.setTargetAtTime(16+t*40, now, 0.1);
+        } else if (id==='aglomeracion') {
+          gain.gain.setTargetAtTime(0.15+t*0.25, now, 0.1);
+          n.oscs.forEach((o,i) => o.frequency.setTargetAtTime(100+i*30+t*120+Math.random()*20, now, 0.15));
+        } else if (id==='olor') {
+          gain.gain.setTargetAtTime(0.18+t*0.28, now, 0.1);
+          n.osc.frequency.setTargetAtTime(95+t*40, now, 0.15);
+        }
+      }
+    }
+
+
+    /* ============================================================
+       CONSTRUCCIÓN DEL DOM
+       Genera dinámicamente cada tarjeta de sensor con:
+         - Ícono SVG animado específico para cada tipo
+         - Slider de control
+         - Etiquetas de nombre, valor numérico y estado
+       También vincula el evento del slider para actualizar
+       audio, colores y estado en tiempo real.
+    ============================================================ */
+    const grid = document.getElementById('grid');
+
+    SENSORS.forEach(sensor => {
+      sensorStates[sensor.id] = { value: 0, phase: 0 };
+
+      /* --- Tarjeta contenedora --- */
+      const card = document.createElement('div');
+      card.className = 'sensor-card equalizer-container';
+
+      /* --- Etiqueta de nombre --- */
+      const label = document.createElement('span');
+      label.className = 'sensor-label'; label.textContent = sensor.label;
+      let labelColor = '', valueColor = '';
+
+      /* --- Valor numérico (esquina superior derecha) --- */
+      const valueEl = document.createElement('span');
+      valueEl.className = 'sensor-value'; valueEl.textContent = '000';
+      valueEl.id = `val-${sensor.id}`;
+
+      /* --- Contenedor del ícono animado --- */
+      const wrap = document.createElement('div');
+      wrap.className = 'canvas-wrap';
+
+      /* ── ÍCONOS SVG POR SENSOR ──
+         Cada sensor tiene un SVG distinto que se animará con JS */
+
+      if (sensor.id === 'temperatura') {
+        /* Sol / rayos de calor — 8 pares de rectángulos en disposición radial */
+        const c = document.createElement('div');
+        c.style.cssText = 'position:relative;width:100px;height:100px';
+        c.innerHTML = `<svg id="svg-temperatura" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="width:100%;height:100%">
+          <defs><style>.cls-1{fill:#666}</style></defs>
+          <path class="cls-1" d="M80,102.18l-22.18-22.18,22.18-22.18,22.18,22.18-22.18,22.18ZM64.89,80l15.11,15.11,15.11-15.11-15.11-15.11-15.11,15.11Z"/>
+          <g><rect class="cls-1" x="133.93" y="65.65" width="5" height="27.54"/><rect class="cls-1" x="123.34" y="65.65" width="5" height="27.54"/></g>
+          <g><rect class="cls-1" x="106.13" y="116.83" width="27.54" height="5" transform="translate(-49.26 119.74) rotate(-45)"/><rect class="cls-1" x="98.64" y="109.34" width="27.54" height="5" transform="translate(-46.16 112.25) rotate(-45)"/></g>
+          <g><rect class="cls-1" x="66.23" y="133.36" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="122.77" width="27.54" height="5"/></g>
+          <g><rect class="cls-1" x="37.6" y="105.56" width="5" height="27.54" transform="translate(-72.64 63.3) rotate(-45)"/><rect class="cls-1" x="45.08" y="98.07" width="5" height="27.54" transform="translate(-65.15 66.4) rotate(-45)"/></g>
+          <g><rect class="cls-1" x="21.07" y="65.65" width="5" height="27.54"/><rect class="cls-1" x="31.66" y="65.65" width="5" height="27.54"/></g>
+          <g><rect class="cls-1" x="26.32" y="37.02" width="27.54" height="5" transform="translate(-16.2 39.93) rotate(-45)"/><rect class="cls-1" x="33.81" y="44.51" width="27.54" height="5" transform="translate(-19.3 47.42) rotate(-45)"/></g>
+          <g><rect class="cls-1" x="66.23" y="20.49" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="31.08" width="27.54" height="5"/></g>
+          <g><rect class="cls-1" x="117.4" y="25.75" width="5" height="27.54" transform="translate(7.17 96.36) rotate(-45)"/><rect class="cls-1" x="109.92" y="33.24" width="5" height="27.54" transform="translate(-.32 93.26) rotate(-45)"/></g>
+        </svg>`;
+        wrap.appendChild(c);
+
+      } else if (sensor.id === 'sonido') {
+        /* Grilla de rectángulos — simula un espectro de audio o cuadrícula de ruido */
+        const c = document.createElement('div');
+        c.style.cssText = 'position:relative;width:100px;height:100px';
+        c.innerHTML = `<svg id="svg-sonido" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="width:100%;height:100%">
+          <defs><style>.cls-1{fill:#666}</style></defs>
+          <g><rect class="cls-1" x="19.9" y="19.87" width="27.54" height="5"/><rect class="cls-1" x="19.9" y="31.13" width="27.54" height="5"/><rect class="cls-1" x="19.9" y="41.72" width="27.54" height="5"/></g>
+          <g><rect class="cls-1" x="66.23" y="19.78" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="31.04" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="41.63" width="27.54" height="5"/></g>
+          <rect class="cls-1" x="112.3" y="19.85" width="27.54" height="5"/><rect class="cls-1" x="112.3" y="31.11" width="27.54" height="5"/><rect class="cls-1" x="112.3" y="41.7" width="27.54" height="5"/>
+          <g>
+            <g><rect class="cls-1" x="19.9" y="66.24" width="27.54" height="5"/><rect class="cls-1" x="19.9" y="77.5" width="27.54" height="5"/><rect class="cls-1" x="19.9" y="88.09" width="27.54" height="5"/></g>
+            <g><rect class="cls-1" x="66.23" y="66.15" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="77.41" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="88" width="27.54" height="5"/></g>
+            <g><rect class="cls-1" x="112.3" y="66.22" width="27.54" height="5"/><rect class="cls-1" x="112.3" y="77.48" width="27.54" height="5"/><rect class="cls-1" x="112.3" y="88.07" width="27.54" height="5"/></g>
+          </g>
+          <g>
+            <g><rect class="cls-1" x="19.9" y="112.94" width="27.54" height="5"/><rect class="cls-1" x="19.9" y="124.2" width="27.54" height="5"/><rect class="cls-1" x="19.9" y="134.79" width="27.54" height="5"/></g>
+            <g><rect class="cls-1" x="66.23" y="112.85" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="124.11" width="27.54" height="5"/><rect class="cls-1" x="66.23" y="134.7" width="27.54" height="5"/></g>
+            <g><rect class="cls-1" x="112.3" y="112.92" width="27.54" height="5"/><rect class="cls-1" x="112.3" y="124.18" width="27.54" height="5"/><rect class="cls-1" x="112.3" y="134.77" width="27.54" height="5"/></g>
+          </g>
+        </svg>`;
+        wrap.appendChild(c);
+
+      } else if (sensor.id === 'espacio') {
+        /* Dos SVGs superpuestos e independientes:
+           - svg-espacio-cuadrado: el borde exterior (espacio del recinto)
+           - svg-espacio-circulo: el círculo interior (cuerpo/persona), animado por separado */
+        const c = document.createElement('div');
+        c.style.cssText = 'position:relative;width:100px;height:100px';
+        c.innerHTML = `
+          <svg id="svg-espacio-cuadrado" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="position:absolute;top:0;left:0;width:100%;height:100%">
+            <defs><style>.shape-sq{fill:none;stroke:#666;stroke-width:6;stroke-linejoin:miter;stroke-linecap:square}</style></defs>
+            <rect class="shape-sq" x="20.43" y="20.28" width="118.97" height="118.97"/>
+          </svg>
+          <svg id="svg-espacio-circulo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="position:absolute;top:0;left:0;width:100%;height:100%">
+            <defs><style>.cls-1{fill:#666}</style></defs>
+            <path class="cls-1" d="M80.49,121.38c-22.82,0-41.38-18.56-41.38-41.38s18.56-41.38,41.38-41.38,41.38,18.56,41.38,41.38-18.56,41.38-41.38,41.38ZM80.49,44.19c-19.75,0-35.81,16.06-35.81,35.81s16.06,35.81,35.81,35.81,35.81-16.06,35.81-35.81-16.06-35.81-35.81-35.81Z"/>
+          </svg>`;
+        wrap.appendChild(c);
+
+      } else if (sensor.id === 'iluminacion') {
+        /* Dos SVG superpuestos: rayos de luz y rayos de oscuridad
+           Se transicionan entre sí según el valor del slider */
+        const c = document.createElement('div');
+        c.style.cssText = 'position:relative;overflow:visible;width:100px;height:100px';
+        c.innerHTML = `
+          <svg id="svg-luz" viewBox="0 0 160 160" style="position:absolute;width:100%;height:100%;pointer-events:none">
+            <path class="light" d="M65.15,70.36l-40.94-27.03-.7-7,12.94-12.84,6.98.73,26.91,40.96-5.2,5.18ZM28.96,40.46l33.87,22.37-22.27-33.89-2.26-.24-9.57,9.5.23,2.27Z"/>
+            <path class="light" d="M94.77,70.36l-5.2-5.18,26.91-40.96,6.98-.73,12.94,12.84-.7,7-40.94,27.03ZM119.37,28.94l-22.27,33.89,33.87-22.37.23-2.27-9.57-9.5-2.26.24Z"/>
+            <path class="light" d="M36.49,136.83l-12.94-12.84.7-7,40.94-27.03,5.2,5.18-26.91,40.96-6.98.73ZM28.77,122.11l9.57,9.5,2.26-.24,22.27-33.89-33.87,22.37-.23,2.27Z"/>
+            <path class="light" d="M123.51,136.83l-6.98-.73-26.91-40.96,5.2-5.18,40.94,27.03.7,7-12.94,12.84ZM119.4,131.37l2.26.24,9.57-9.5-.23-2.27-33.87-22.37,22.27,33.89Z"/>
+          </svg>
+          <svg id="svg-oscuridad" viewBox="0 0 160 160" style="position:absolute;width:100%;height:100%;pointer-events:none">
+            <path class="dark" d="M85.51,54.95l-10.73-.09-3.42-4.28,7.04-32.43,4.18.04.49,2,5.95,30.56-3.5,4.21ZM77.2,49.88l5.98.05.46-.56-3.27-16.79-3.63,16.73.45.57Z"/>
+            <path class="dark" d="M78.4,142.85l-7.04-32.43,3.42-4.28,10.73-.09,3.5,4.21-6.34,32.56-4.27.04ZM76.75,111.68l3.63,16.73,3.27-16.79-.46-.56-5.98.05-.45.57Z"/>
+            <path class="dark" d="M51.75,89.12l-32.56-6.33-.05-4.27,32.44-7.04,4.28,3.42.09,10.73-4.2,3.5ZM33.59,80.49l16.79,3.27.56-.46-.05-5.98-.57-.45-16.73,3.63Z"/>
+            <path class="dark" d="M107.25,89.12l-4.2-3.5.09-10.73,4.28-3.42,32.44,7.04-.04,4.2-2.01.47-30.56,5.95ZM108.06,83.29l.56.46,16.79-3.27-16.73-3.63-.57.45-.05,5.98Z"/>
+          </svg>
+          <style>.light{fill:#666}.dark{fill:#666}</style>`;
+        wrap.appendChild(c);
+
+      } else if (sensor.id === 'aglomeracion') {
+        /* Cuadrado central (persona) + 8 círculos (personas alrededor)
+           Los círculos se mueven autónomamente aumentando la densidad */
+        const c = document.createElement('div');
+        c.id = 'container-aglomeracion';
+        c.style.cssText = 'position:relative;width:100px;height:100px;overflow:hidden';
+        c.innerHTML = `
+          <svg id="svg-persona" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="position:absolute;top:0;left:0;width:100%;height:100%">
+            <path style="fill:#666" d="M95.68,95.68h-31.36v-31.36h31.36v31.36ZM69.32,90.68h21.36v-21.36h-21.36v21.36Z"/>
+          </svg>
+          <svg id="svg-circulos" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="position:absolute;top:0;left:0;width:100%;height:100%">
+            <path style="fill:#666" d="M35.59,50.57c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM35.59,25.39c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M80.14,50.57c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM80.14,25.39c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M124.38,50.57c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM124.38,25.39c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M35.62,95.06c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM35.62,69.89c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M124.41,95.06c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM124.41,69.89c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M35.59,139.61c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM35.59,114.43c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M80.14,139.61c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM80.14,114.43c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+            <path style="fill:#666" d="M124.38,139.61c-8.32,0-15.09-6.77-15.09-15.09s6.77-15.09,15.09-15.09,15.09,6.77,15.09,15.09-6.77,15.09-15.09,15.09ZM124.38,114.43c-5.56,0-10.09,4.53-10.09,10.09s4.53,10.09,10.09,10.09,10.09-4.53,10.09-10.09-4.53-10.09-10.09-10.09Z"/>
+          </svg>`;
+        wrap.appendChild(c);
+
+      } else if (sensor.id === 'olor') {
+        /* Dos capas independientes:
+           1. EXTERIOR (svg-olor-exterior): el SVG de arcos/rayos segmentado en 8 franjas
+              que se desplazan horizontalmente — mismo efecto ondulante de antes.
+           2. INTERIOR (canvas-olor-circulo): un canvas donde se dibuja el círculo
+              central deformado como plastilina, siguiendo el ritmo del exterior
+              pero sin segmentarse — usa scale() y skew() suavizados. */
+        const c = document.createElement('div');
+        c.id = 'container-olor';
+        c.style.cssText = 'position:relative;width:100px;height:100px;overflow:hidden';
+
+        /* --- CAPA EXTERIOR: franjas del SVG de arcos --- */
+        const FRANJAS = 8;
+        const exteriorSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">
+          <defs><style>.cls-1{fill:#666}</style></defs>
+          <g>
+            <path class="cls-1" d="M91.07,27.08c-4.5-.99-9.14-1.39-13.79-1.21-2.9.11-5.8.46-8.62,1.03l-.98-4.9c3.08-.62,6.24-1,9.41-1.12,5.08-.2,10.14.25,15.06,1.33l-1.07,4.88Z"/>
+            <path class="cls-1" d="M79.37,139.18c-.79,0-1.58-.02-2.37-.05-3.16-.12-6.33-.5-9.41-1.12l.98-4.9c2.82.57,5.72.91,8.62,1.03,4.65.18,9.29-.22,13.79-1.21l1.07,4.88c-4.15.91-8.42,1.37-12.7,1.37Z"/>
+            <g>
+              <path class="cls-1" d="M21.8,92.17c-.62-3.08-1-6.24-1.12-9.41-.2-5.07.25-10.14,1.33-15.06l4.88,1.07c-.99,4.5-1.4,9.14-1.21,13.79.11,2.9.46,5.8,1.03,8.62l-4.9.98Z"/>
+              <path class="cls-1" d="M137.82,92.25l-4.9-.98c.57-2.82.91-5.72,1.03-8.62.18-4.65-.23-9.29-1.21-13.79l4.88-1.07c1.08,4.92,1.53,9.99,1.33,15.06-.13,3.16-.5,6.33-1.12,9.4Z"/>
+            </g>
+            <path class="cls-1" d="M34.5,50.24l-4.16-2.77c1.74-2.61,3.71-5.12,5.86-7.44,3.45-3.73,7.35-7,11.59-9.71l2.7,4.21c-3.88,2.49-7.45,5.48-10.61,8.9-1.97,2.13-3.78,4.43-5.37,6.82Z"/>
+            <path class="cls-1" d="M112.31,129.57l-2.77-4.16c2.4-1.6,4.69-3.4,6.82-5.37,3.42-3.16,6.41-6.73,8.9-10.61l4.21,2.7c-2.71,4.24-5.98,8.14-9.71,11.59-2.32,2.15-4.83,4.12-7.44,5.86Z"/>
+            <g>
+              <path class="cls-1" d="M47.32,129.51c-2.62-1.74-5.12-3.71-7.44-5.86-3.73-3.45-7-7.35-9.71-11.59l4.21-2.7c2.48,3.88,5.48,7.45,8.9,10.61,2.13,1.97,4.42,3.77,6.82,5.37l-2.77,4.16Z"/>
+              <path class="cls-1" d="M125.26,50.3c-1.59-2.39-3.4-4.69-5.37-6.82-3.16-3.42-6.73-6.41-10.61-8.9l2.7-4.21c4.24,2.71,8.14,5.98,11.59,9.71,2.15,2.33,4.12,4.83,5.86,7.44l-4.16,2.77Z"/>
+            </g>
+          </g>
+          <g>
+            <path class="cls-1" d="M58.24,51.19l-2.96-4.03c1.75-1.29,3.63-2.45,5.58-3.45,3.12-1.61,6.43-2.8,9.84-3.56l1.09,4.88c-2.99.67-5.89,1.72-8.64,3.13-1.71.88-3.36,1.9-4.9,3.03Z"/>
+            <path class="cls-1" d="M89.07,119.99l-1.17-4.86c1.86-.45,3.7-1.05,5.48-1.79,2.85-1.19,5.53-2.74,7.96-4.59l3.03,3.98c-2.77,2.11-5.82,3.87-9.06,5.23-2.02.84-4.12,1.53-6.23,2.04Z"/>
+            <g>
+              <path class="cls-1" d="M46.95,104.58c-1.29-1.75-2.45-3.63-3.45-5.58-1.61-3.13-2.8-6.44-3.56-9.84l4.88-1.09c.67,2.99,1.72,5.89,3.13,8.64.88,1.71,1.9,3.36,3.03,4.9l-4.03,2.96Z"/>
+              <path class="cls-1" d="M114.92,71.96c-.45-1.86-1.05-3.7-1.79-5.47-1.19-2.85-2.73-5.53-4.59-7.96l3.98-3.03c2.11,2.77,3.87,5.82,5.23,9.07.84,2.02,1.53,4.12,2.04,6.23l-4.86,1.17Z"/>
+            </g>
+            <path class="cls-1" d="M44.21,74.8l-4.94-.76c.33-2.15.83-4.29,1.5-6.38,1.08-3.35,2.57-6.54,4.44-9.48l4.22,2.68c-1.64,2.58-2.95,5.38-3.9,8.32-.59,1.83-1.03,3.72-1.32,5.61Z"/>
+            <path class="cls-1" d="M114.67,101.65l-4.27-2.61c.99-1.63,1.87-3.35,2.6-5.14,1.17-2.86,1.98-5.84,2.39-8.88l4.96.67c-.47,3.45-1.38,6.85-2.72,10.1-.83,2.03-1.83,4-2.96,5.85Z"/>
+            <g>
+              <path class="cls-1" d="M73.86,120.58c-2.15-.33-4.29-.83-6.38-1.5-3.35-1.08-6.54-2.57-9.48-4.44l2.68-4.22c2.58,1.64,5.38,2.95,8.32,3.9,1.83.59,3.72,1.03,5.61,1.32l-.76,4.94Z"/>
+              <path class="cls-1" d="M98.86,49.45c-1.63-1-3.36-1.87-5.14-2.6-2.86-1.17-5.84-1.98-8.87-2.38l.67-4.96c3.45.46,6.85,1.38,10.11,2.71,2.03.83,4,1.83,5.85,2.96l-2.61,4.27Z"/>
+            </g>
+          </g>
+        </svg>`;
+
+        for (let i=0; i<FRANJAS; i++) {
+          const f = document.createElement('div');
+          f.className = 'olor-franja'; f.dataset.index = i;
+          f.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;clip-path:inset(${(i/FRANJAS)*100}% 0% ${100-((i+1)/FRANJAS)*100}% 0%);will-change:transform,opacity`;
+          f.innerHTML = exteriorSVG;
+          c.appendChild(f);
+        }
+
+        /* --- CAPA INTERIOR: canvas donde se dibuja el círculo deformado --- */
+        const canvasOlor = document.createElement('canvas');
+        canvasOlor.id = 'canvas-olor-circulo';
+        const dpr = window.devicePixelRatio || 1;
+        canvasOlor.width  = 100 * dpr;
+        canvasOlor.height = 100 * dpr;
+        canvasOlor.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none';
+        const canvasOlorCtx = canvasOlor.getContext('2d');
+        if (canvasOlorCtx) {
+          canvasOlorCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          canvasOlorCtx.imageSmoothingEnabled = true;
+          canvasOlorCtx.imageSmoothingQuality = 'high';
+        }
+        c.appendChild(canvasOlor);
+
+        wrap.appendChild(c);
+
+      } else {
+        /* Canvas genérico (círculo) para sensores sin SVG específico */
+        const canvas = document.createElement('canvas');
+        canvas.className = 'circle-canvas'; canvas.width = CANVAS_SIZE; canvas.height = CANVAS_SIZE;
+        canvas.id = `canvas-${sensor.id}`; wrap.appendChild(canvas);
+      }
+
+      /* --- Slider + etiqueta de estado --- */
+      const sliderWrap = document.createElement('div'); sliderWrap.className = 'slider-wrap';
+      const slider     = document.createElement('input');
+      slider.type = 'range'; slider.min = 0; slider.max = 100; slider.value = 0;
+      slider.id   = `slider-${sensor.id}`; slider.style.setProperty('--pct','0%');
+
+      const stateLabel = document.createElement('span');
+      stateLabel.className = 'state-label'; stateLabel.textContent = 'reposo';
+      stateLabel.id = `state-${sensor.id}`;
+
+      /* --- Evento del slider: actualiza UI, colores y audio --- */
+      slider.addEventListener('input', () => {
+        const v = parseInt(slider.value, 10);
+        sensorStates[sensor.id].value = v;
+        slider.style.setProperty('--pct', v+'%');
+
+        /* Interpolación de color para la etiqueta y el número según el valor */
+        const nextColor       = interpolateColor(labelColor || 'rgb(221,221,221)', '#3a3a3a', v/100);
+        const nextNumberColor = interpolateColor(valueColor || 'rgb(209,209,209)', '#3a3a3a', v/100);
+
+        document.getElementById(`val-${sensor.id}`).textContent = String(v).padStart(3,'0');
+
+        /* Fondo de la tarjeta: de oscuro → verde (#afef00) a máximo */
+        const cont = slider.closest('.equalizer-container');
+        if (cont) {
+          cont.style.backgroundColor = interpolateColor(BASE_BG, '#afef00', v/100);
+          const title  = cont.querySelector('.sensor-label');
+          const number = cont.querySelector('.sensor-value');
+          if (title)  title.style.color  = nextColor;
+          if (number) number.style.color = nextNumberColor;
+          slider.style.setProperty('--slider-active', nextColor);
+          slider.style.setProperty('--slider-thumb', nextNumberColor);
+        }
+
+        /* Actualizar etiqueta de estado según umbrales */
+        const sl = document.getElementById(`state-${sensor.id}`);
+        if      (v < THRESH_SAT)    { sl.textContent = 'reposo';    sl.className = 'state-label'; }
+        else if (v < THRESH_GLITCH) { sl.textContent = 'saturación'; sl.className = 'state-label saturacion'; }
+        else                        { sl.textContent = 'colapso';   sl.className = 'state-label colapso'; }
+
+        /* Inicializar audio si el usuario ya está interactuando con el slider */
+        if (!audioCtx) initAudio();
+        /* Reanudar contexto de audio si estaba suspendido (política del navegador) */
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        updateAudio(sensor.id, v);
+      });
+
+      sliderWrap.appendChild(slider); sliderWrap.appendChild(stateLabel);
+      card.appendChild(label); card.appendChild(valueEl); card.appendChild(wrap); card.appendChild(sliderWrap);
+      grid.appendChild(card);
+
+      /* Guardar colores iniciales para usarlos en la interpolación */
+      labelColor = getComputedStyle(label).color;
+      valueColor = getComputedStyle(valueEl).color;
+    });
+
+    /* ============================================================
+       FUNCIONES DE ANIMACIÓN VISUAL POR SENSOR
+       Cada función recibe el valor actual (0–100) y la fase
+       de animación (ángulo que avanza con el tiempo).
+       Modifican los SVGs directamente para producir los efectos.
+    ============================================================ */
+
+    /* --- TEMPERATURA: el SVG se desenfoca y duplica con blur --- */
+    function updateTemperatura(v, phase) {
+      const svg = document.getElementById('svg-temperatura'); if (!svg) return;
+      const c   = svg.parentElement;
+      c.querySelectorAll('.temp-clone').forEach(e => e.remove());
+      svg.style.filter    = 'blur(0px)';
+      svg.style.transform = 'none';
+
+      if (v >= 30 && v < 70) {
+        /* Saturación: blur suave + algunos clones semitransparentes */
+        const t = (v-30)/40;
+        svg.style.filter = `blur(${t*2}px)`;
+        for (let i=0; i<Math.floor(t*4); i++) {
+          const cl = svg.cloneNode(true); cl.classList.add('temp-clone');
+          cl.style.cssText = `position:absolute;top:0;left:0;opacity:0.2;transform:none;filter:blur(${t*1.5}px)`;
+          c.appendChild(cl);
+        }
+      }
+      if (v >= 70) {
+        /* Colapso: blur extremo + muchos clones casi invisibles */
+        const t = (v-70)/30;
+        svg.style.filter = `blur(${4+t*8}px)`;
+        for (let i=0; i<8+Math.floor(t*6); i++) {
+          const cl = svg.cloneNode(true); cl.classList.add('temp-clone');
+          cl.style.cssText = `position:absolute;top:0;left:0;opacity:0.06;transform:none;filter:blur(${2+t*5}px)`;
+          c.appendChild(cl);
+        }
+      }
+    }
+
+    /* --- SONIDO: los rectángulos se mueven y rotan aleatoriamente --- */
+    function updateSonido(v, phase) {
+      const svg   = document.getElementById('svg-sonido'); if (!svg) return;
+      const rects = svg.querySelectorAll('rect');
+      rects.forEach(r => { r.style.transform = 'translate(0,0) rotate(0deg)'; r.style.transformOrigin = 'center'; });
+
+      if (v >= 30 && v < 70) {
+        /* Saturación: movimiento ondulante sincronizado con la fase */
+        const t = (v-30)/40;
+        rects.forEach((r, i) => {
+          const w  = Math.sin(phase*3+i*0.5), mx = w*(15*t), my = Math.cos(phase*2+i)*(5*t), sx = 1+0.4*t;
+          r.style.transform = `translate(${mx}px,${my}px) scale(${sx},1)`;
+        });
+      }
+      if (v >= 70) {
+        /* Colapso: posiciones y rotaciones completamente aleatorias */
+        const t = (v-70)/30;
+        rects.forEach((r, i) => {
+          const w  = Math.sin(phase*3+i*0.5), bx = w*10, by = Math.cos(phase*2+i)*6;
+          const jx = (Math.random()-0.5)*40*t, jy = (Math.random()-0.5)*40*t, rot = (Math.random()-0.5)*180*t;
+          const x  = bx*(1-t)+jx, y = by*(1-t)+jy, sx = 1+0.5*t;
+          r.style.transform = `translate(${x}px,${y}px) rotate(${rot}deg) scale(${sx},1)`;
+        });
+      }
+    }
+
+    /* --- ESPACIO: el cuadrado se encoge y el círculo tiembla ---
+       Dos SVGs independientes: svg-espacio-cuadrado y svg-espacio-circulo.
+       Cada uno se transforma por separado sobre su propio elemento raíz. */
+    function updateEspacio(v, phase) {
+      const svgSq = document.getElementById('svg-espacio-cuadrado');
+      const svgCi = document.getElementById('svg-espacio-circulo');
+      if (!svgSq || !svgCi) return;
+      svgSq.style.transformOrigin = 'center'; svgCi.style.transformOrigin = 'center';
+      svgSq.style.transform = ''; svgCi.style.transform = '';
+      const sq = svgSq, ci = svgCi; /* alias para no reescribir la lógica */
+      if (v < 30) return;
+
+      if (v >= 30 && v < 70) {
+        /* Saturación: cuadrado que rota + círculo que oscila suavemente */
+        const t = (v-30)/40;
+        sq.style.transform = `scale(${1-t*0.4}) rotate(${phase*20}deg)`;
+        const m = 3+t*6;
+        ci.style.transform = `translate(${Math.sin(phase*3)*m}px,${Math.cos(phase*2)*m}px)`;
+      }
+      if (v >= 70) {
+        /* Colapso: cuadrado fijo pequeño + círculo que salta aleatoriamente */
+        const t = (v-70)/30;
+        sq.style.transform = `scale(0.6) rotate(${phase*5}deg)`;
+        const int = 10+t*25, x = (Math.random()-0.5)*int, y = (Math.random()-0.5)*int, sh = Math.sin(phase*20)*2;
+        ci.style.transform = `translate(${x+sh}px,${y-sh}px)`;
+      }
+    }
+
+    /* --- ILUMINACIÓN: los rayos de luz se expanden y parpadean --- */
+    function updateIluminacion(v, phase) {
+      const luz = document.getElementById('svg-luz'), osc = document.getElementById('svg-oscuridad');
+      if (!luz || !osc) return;
+
+      if (v < 30) {
+        /* Reposo: estado neutro sin efectos */
+        luz.style.transform = 'scale(1)'; luz.style.filter = 'none'; luz.style.opacity = 1; osc.style.opacity = 1;
+        return;
+      }
+      if (v >= 30 && v < 70) {
+        /* Saturación: los rayos de oscuridad desaparecen, la luz crece con glow */
+        const t = (v-30)/40;
+        osc.style.opacity     = 1-t;
+        luz.style.transform   = `scale(${(1+t*0.8)*(1+Math.sin(phase*3)*0.05*t)})`;
+        luz.style.filter      = `drop-shadow(0 0 ${10*t}px #c8d8ff)`;
+        luz.style.opacity     = 1;
+      }
+      if (v >= 70) {
+        /* Colapso: luz sobreexpuesta, clones desplazados para efecto stroboscópico */
+        const t   = (v-70)/30;
+        osc.style.opacity   = 0;
+        luz.style.opacity   = Math.random()*0.6+0.4;
+        luz.style.transform = `scale(${2+t*1.5})`;
+        luz.style.filter    = `drop-shadow(0 0 ${25+t*60}px #c8d8ff) brightness(${2+t*3})`;
+        const cont = luz.parentElement;
+        cont.querySelectorAll('.light-clone').forEach(c => c.remove());
+        for (let i=0; i<6+Math.floor(t*10); i++) {
+          const cl = luz.cloneNode(true); cl.classList.add('light-clone');
+          cl.style.cssText = `position:absolute;top:0;left:0;pointer-events:none;opacity:${0.05+Math.random()*0.15}`;
+          const jx = (Math.random()-0.5)*(30+t*80), jy = (Math.random()-0.5)*(30+t*80), s = 0.8+Math.random()*0.8, rot = (Math.random()-0.5)*40*t;
+          cl.style.transform = `translate(${jx}px,${jy}px) scale(${s}) rotate(${rot}deg)`;
+          cl.style.filter    = `blur(${1+t*4}px) brightness(${2+t*2})`;
+          cont.appendChild(cl);
+        }
+      }
+    }
+
+    /* ============================================================
+       SISTEMA DE PARTÍCULAS PARA AGLOMERACIÓN
+       Los 8 círculos del SVG son "walkers" (caminantes autónomos)
+       que rebotan dentro del contenedor.
+       Su velocidad aumenta con el valor del slider.
+    ============================================================ */
+
+    /* Posiciones originales de los 8 círculos en el viewBox del SVG */
+    const CIRCLE_ORIGINS = [
+      {x:55.84,y:52.94},{x:146.28,y:52.94},{x:236.72,y:52.94},
+      {x:55.84,y:141.84},{x:236.72,y:141.84},
+      {x:55.84,y:230.91},{x:146.28,y:230.91},{x:236.72,y:230.91}
+    ];
+
+    const circleWalkers = CIRCLE_ORIGINS.map(o => ({
+      x: o.x, y: o.y,
+      vx: (Math.random()-0.5)*0.5,
+      vy: (Math.random()-0.5)*0.5
+    }));
+
+    const VB_W  = 294.33; /* Ancho del viewBox del SVG de círculos */
+    const VB_H  = 280.09; /* Alto del viewBox del SVG de círculos */
+    const CR_VB = 28;     /* Radio de cada círculo (para calcular rebote en bordes) */
+
+    /* Mueve los walkers y renderiza el SVG de círculos */
+    function updateAglomeracion(v, phase, dt) {
+      const cont = document.getElementById('container-aglomeracion'); if (!cont) return;
+      const persona = document.getElementById('svg-persona'), circ = document.getElementById('svg-circulos');
+      cont.querySelectorAll('.aglo-clone').forEach(c => c.remove());
+
+      if (v < THRESH_SAT) {
+        /* Reposo: resetear posiciones a las originales */
+        persona.style.opacity = 1;
+        CIRCLE_ORIGINS.forEach((o, i) => { circleWalkers[i].x = o.x; circleWalkers[i].y = o.y; });
+        circ.style.transform = '';
+        renderCirculos(circ, circleWalkers.slice(0,8), 1);
+        return;
+      }
+
+      /* Función de movimiento con rebote en los bordes */
+      const clampWalker = (w, spd) => {
+        const m = Math.sqrt(w.vx*w.vx + w.vy*w.vy);
+        if (m > spd) { w.vx = (w.vx/m)*spd; w.vy = (w.vy/m)*spd; }
+        w.x += w.vx; w.y += w.vy;
+        if (w.x < CR_VB)       { w.x = CR_VB;       w.vx *= -1; }
+        if (w.x > VB_W-CR_VB)  { w.x = VB_W-CR_VB;  w.vx *= -1; }
+        if (w.y < CR_VB)       { w.y = CR_VB;        w.vy *= -1; }
+        if (w.y > VB_H-CR_VB)  { w.y = VB_H-CR_VB;  w.vy *= -1; }
+      };
+
+      if (v < THRESH_GLITCH) {
+        /* Saturación: movimiento lento y errático */
+        const t = (v-THRESH_SAT)/(THRESH_GLITCH-THRESH_SAT), spd = 0.4+t*1.2;
+        persona.style.opacity = 1;
+        circleWalkers.forEach(w => { w.vx += (Math.random()-0.5)*0.15; w.vy += (Math.random()-0.5)*0.15; clampWalker(w, spd); });
+        renderCirculos(circ, circleWalkers.slice(0,8), 1);
+        return;
+      }
+
+      /* Colapso: movimiento rápido + clones desplazados que se superponen */
+      const t = (v-THRESH_GLITCH)/(100-THRESH_GLITCH), spd = 1.2+t*3;
+      persona.style.opacity = 1-t*0.95;
+      circleWalkers.forEach(w => { w.vx += (Math.random()-0.5)*(0.15+t*0.4); w.vy += (Math.random()-0.5)*(0.15+t*0.4); clampWalker(w, spd); });
+      renderCirculos(circ, circleWalkers, 1);
+      for (let c=0; c<3; c++) {
+        const cT = Math.max(0,(t-c*0.33)/0.33), op = Math.min(1, cT);
+        if (op <= 0) continue;
+        const cl = circ.cloneNode(true); cl.classList.add('aglo-clone');
+        cl.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:${op}`;
+        const ow = circleWalkers.map(w => ({
+          x: w.x + Math.sin(phase*0.4+c*2.1)*(20+c*18),
+          y: w.y + Math.cos(phase*0.4+c*1.7)*(20+c*18)
+        }));
+        renderCirculos(cl, ow, 1);
+        cont.appendChild(cl);
+      }
+    }
+
+    /* Aplica las posiciones de los walkers a los paths del SVG */
+    function renderCirculos(el, walkers, op) {
+      el.style.opacity = op;
+      el.querySelectorAll('path').forEach((p, i) => {
+        const w = walkers[i]; if (!w) return;
+        p.style.transform       = `translate(${w.x-CIRCLE_ORIGINS[i].x}px,${w.y-CIRCLE_ORIGINS[i].y}px)`;
+        p.style.transformOrigin = `${CIRCLE_ORIGINS[i].x}px ${CIRCLE_ORIGINS[i].y}px`;
+      });
+    }
+
+    /* --- OLOR: exterior segmentado + círculo interior deformado ---
+       El exterior (franjas) se desplaza horizontalmente igual que antes.
+       El interior (canvas) dibuja el círculo del SVG deformado como plastilina:
+       su escala X/Y varía suavemente siguiendo el mismo ritmo de las franjas
+       pero sin cortarse — se estira y aplasta como un blob fluido. */
+    function updateOlor(v, phase) {
+      const cont    = document.getElementById('container-olor'); if (!cont) return;
+      const franjas = cont.querySelectorAll('.olor-franja');
+      const canvas  = document.getElementById('canvas-olor-circulo');
+      const ctx     = canvas ? canvas.getContext('2d') : null;
+
+      /* ── REPOSO: todo quieto ── */
+      if (v < THRESH_SAT) {
+        franjas.forEach(f => { f.style.transform = 'translateX(0)'; f.style.opacity = '1'; });
+        if (ctx) drawOlorCircle(ctx, 1, 1, 0, 0, 1);
+        return;
+      }
+
+      /* ── SATURACIÓN: ondulación suave en exterior + deformación leve del círculo ── */
+      if (v < THRESH_GLITCH) {
+        const t = (v-THRESH_SAT)/(THRESH_GLITCH-THRESH_SAT), amp = t*6;
+
+        /* Exterior: franjas se deslizan en X */
+        franjas.forEach((f, i) => {
+          f.style.transform = `translateX(${Math.sin(phase*1.5+i*0.8)*amp}px)`;
+          f.style.opacity   = '1';
+        });
+
+        /* Interior: el círculo se aplasta/estira siguiendo el promedio del movimiento
+           scaleX sube cuando la onda va a la derecha, scaleY compensa (plastilina) */
+        if (ctx) {
+          const wave  = Math.sin(phase*1.5) * t; /* −t … +t */
+          const sx    = 1 + wave * 0.18;          /* escala horizontal */
+          const sy    = 1 / (sx || 1);            /* volumen constante (squash & stretch) */
+          const ox    = Math.sin(phase*1.5) * amp * 0.3; /* pequeño desplazamiento */
+          const oy    = Math.cos(phase*1.1) * amp * 0.15;
+          drawOlorCircle(ctx, sx, sy, ox, oy, 1);
+        }
+        return;
+      }
+
+      /* ── COLAPSO: exterior caótico + círculo que se deforma agresivamente ── */
+      const t = (v-THRESH_GLITCH)/(100-THRESH_GLITCH), amp = 6+t*12;
+
+      /* Exterior: desplazamiento grande con parpadeo */
+      franjas.forEach((f, i) => {
+        const ox = Math.sin(phase*2.5+i*1.4)*amp + Math.cos(phase*1.1+i*2.3)*amp*0.5;
+        const fl = 0.5 + 0.5*Math.sin(phase*4+i*1.7), op = Math.max(0, 1-t*0.6+fl*t*0.5);
+        f.style.transform = `translateX(${ox}px)`;
+        f.style.opacity   = String(op);
+      });
+
+      /* Interior: deformación exagerada — squash & stretch más skew
+         El círculo se tuerce y aplasta siguiendo la fase del exterior */
+      if (ctx) {
+        const wave  = Math.sin(phase*2.5);
+        const wave2 = Math.cos(phase*1.8);
+        const sx    = 1 + wave  * (0.22 + t*0.28); /* estiramiento horizontal */
+        const sy    = 1 + wave2 * (0.18 + t*0.22); /* estiramiento vertical independiente */
+        const skew  = wave * (t * 0.18);             /* inclinación (radianes) */
+        const ox    = wave  * amp * 0.35;
+        const oy    = wave2 * amp * 0.25;
+        const alpha = Math.max(0.4, 1 - t*0.55 + 0.55*Math.abs(Math.sin(phase*3+0.5)));
+        drawOlorCircle(ctx, sx, sy, ox, oy, alpha, skew);
+      }
+    }
+
+    /* Dibuja el círculo interior de Olor en el canvas con deformación de plastilina.
+       Usa el path del SVG (anillo): círculo exterior R≈41, interior R≈35.81 en viewBox 160×160.
+       Escala el viewBox a 100×100px del canvas. */
+    /* Círculo interior de Olor — corresponde al SVG:
+         centro (79.81, 79.81), rOuter=15.09, rInner=10.09  (viewBox 160×160)
+       Es el anillo pequeño que queda al centro del símbolo,
+       NO el círculo grande de Espacio (r≈41). */
+    function drawOlorCircle(ctx, sx, sy, ox, oy, alpha, skew=0) {
+      const W = 100, H = 100;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.clearRect(0, 0, W, H);
+      const scale  = W / 160;          /* 0.625 — escala viewBox→canvas */
+      const cx     = 79.81 * scale;    /* 49.88 px — centro X */
+      const cy     = 79.81 * scale;    /* 49.88 px — centro Y */
+      const rOuter = 15.09 * scale;    /*  9.43 px — borde exterior del anillo */
+      const rInner = 10.09 * scale;    /*  6.31 px — hueco interior del anillo */
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(cx + ox, cy + oy);
+      ctx.transform(sx, skew, skew, sy, 0, 0); /* squash & stretch de plastilina */
+      ctx.fillStyle = '#666';
+
+      /* Anillo: arco exterior CW + arco interior CCW → fill evenodd recorta el hueco */
+      ctx.beginPath();
+      ctx.arc(0, 0, rOuter, 0, Math.PI*2, false);
+      ctx.arc(0, 0, rInner, 0, Math.PI*2, true);
+      ctx.fill('evenodd');
+
+      ctx.restore();
+    }
+
+
+    /* ============================================================
+       FUNCIÓN AUXILIAR: DIBUJO EN CANVAS (sensor genérico)
+       Dibuja un círculo en el canvas con efectos de glitch.
+       Solo se usa si un sensor no tiene SVG asignado.
+    ============================================================ */
+    function drawCircle(ctx, value, phase, g) {
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      const circleColor = interpolateColor('#c8d8ff', '#3a3a3a', value/100);
+      let cx = CENTER, cy = CENTER, sx = 1, sy = 1, alpha = 1;
+
+      if (value >= THRESH_GLITCH) {
+        /* Colapso: posición y escala aleatorias (glitch) */
+        cx = CENTER+g.jx; cy = CENTER+g.jy; sx = g.scaleX; sy = g.scaleY;
+        alpha = 0.75+Math.random()*0.25;
+        const t = (value-THRESH_GLITCH)/(100-THRESH_GLITCH);
+        ctx.save(); ctx.globalAlpha = 0.12*t;
+        ctx.translate(CENTER+g.jx*-1.8, CENTER+g.jy*1.5); ctx.scale(sy, sx);
+        drawEllipse(ctx, 0, 0, CIRCLE_R, '#ff6a6a'); ctx.restore();
+      } else if (value >= THRESH_SAT) {
+        /* Saturación: posición y escala ondulantes */
+        const t = (value-THRESH_SAT)/(THRESH_GLITCH-THRESH_SAT), amp = t*5;
+        cx = CENTER+Math.sin(phase*1.3)*amp; cy = CENTER+Math.cos(phase*0.9)*amp;
+        sx = 1+Math.sin(phase*2.1)*0.06*t; sy = 1+Math.cos(phase*1.7)*0.06*t;
+      }
+
+      ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, cy); ctx.scale(sx, sy);
+      drawEllipse(ctx, 0, 0, CIRCLE_R, circleColor); ctx.restore();
+
+      /* Halo exterior semitransparente */
+      ctx.save(); ctx.globalAlpha = 0.08+(value/100)*0.12; ctx.translate(CENTER, CENTER);
+      drawEllipse(ctx, 0, 0, CIRCLE_R+10, circleColor, true); ctx.restore();
+    }
+
+    /* Dibuja una elipse (rellena o con trazo) en el canvas */
+    function drawEllipse(ctx, x, y, r, color, stroke=false) {
+      ctx.beginPath(); ctx.ellipse(x, y, r, r, 0, 0, Math.PI*2);
+      if (stroke) { ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke(); }
+      else        { ctx.fillStyle  = color; ctx.fill(); }
+    }
+
+    /* ============================================================
+       FUNCIÓN AUXILIAR: INTERPOLACIÓN DE COLOR
+       Mezcla dos colores (hex o rgb) según un factor t (0→1).
+       Usada para transicionar colores suavemente al mover el slider.
+    ============================================================ */
+    function interpolateColor(a, b, t) {
+      t = Math.min(1, Math.max(0, t));
+      const parse = c => {
+        c = c.trim();
+        if (c.startsWith('#')) {
+          let h = c.slice(1);
+          if (h.length === 3) h = h.split('').map(x => x+x).join('');
+          const n = parseInt(h, 16);
+          return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+        }
+        const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+        return m ? { r:+m[1], g:+m[2], b:+m[3] } : { r:0, g:0, b:0 };
+      };
+      const f = parse(a), o = parse(b);
+      return `rgb(${Math.round(f.r+(o.r-f.r)*t)},${Math.round(f.g+(o.g-f.g)*t)},${Math.round(f.b+(o.b-f.b)*t)})`;
+    }
+
+
+    /* ============================================================
+       LOOP PRINCIPAL DE ANIMACIÓN (requestAnimationFrame)
+       Se ejecuta ~60 veces por segundo.
+       Para cada sensor:
+         1. Calcula el delta de tiempo (dt) para animaciones fluidas
+         2. Avanza la fase de animación según el valor del slider
+         3. Actualiza el estado de glitch si corresponde
+         4. Llama a la función de dibujo del sensor
+    ============================================================ */
+
+    /* Estado de glitch por sensor: posición de jitter y cuenta regresiva */
+    const glitchStates = {};
+    SENSORS.forEach(s => {
+      glitchStates[s.id] = { jx:0, jy:0, scaleX:1, scaleY:1, countdown:0 };
+    });
+
+    let lastTime = 0;
+
+    function animate(ts) {
+      const dt = (ts - lastTime) / 1000; /* Delta time en segundos */
+      lastTime  = ts;
+
+      SENSORS.forEach(sensor => {
+        const state  = sensorStates[sensor.id];
+        const canvas = document.getElementById(`canvas-${sensor.id}`);
+        const ctx    = canvas ? canvas.getContext('2d') : null;
+        const g      = glitchStates[sensor.id];
+        const v      = state.value;
+
+        /* Avanzar fase: más rápido a mayor valor */
+        if      (v >= THRESH_GLITCH) state.phase += dt * (4 + (v/100)*8);
+        else if (v >= THRESH_SAT)    state.phase += dt * (1 + (v/100)*2);
+        else                         state.phase += dt * 0.2;
+
+        /* Generar nuevos valores de glitch a intervalos aleatorios */
+        if (v >= THRESH_GLITCH) {
+          g.countdown -= dt;
+          if (g.countdown <= 0) {
+            const t = (v-THRESH_GLITCH)/(100-THRESH_GLITCH), m = t*14;
+            g.jx = (Math.random()-0.5)*2*m;
+            g.jy = (Math.random()-0.5)*2*m;
+            g.scaleX = 0.8+Math.random()*0.45;
+            g.scaleY = 0.8+Math.random()*0.45;
+            g.countdown = 0.03+Math.random()*(0.12-t*0.08);
+          }
+        } else {
+          g.jx = 0; g.jy = 0; g.scaleX = 1; g.scaleY = 1; g.countdown = 0;
+        }
+
+        /* Llamar a la función de animación correspondiente */
+        if      (sensor.id === 'temperatura')  updateTemperatura(v, state.phase);
+        else if (sensor.id === 'sonido')        updateSonido(v, state.phase);
+        else if (sensor.id === 'espacio')       updateEspacio(v, state.phase);
+        else if (sensor.id === 'iluminacion')   updateIluminacion(v, state.phase);
+        else if (sensor.id === 'aglomeracion')  updateAglomeracion(v, state.phase, dt);
+        else if (sensor.id === 'olor')          updateOlor(v, state.phase);
+        else if (ctx)                           drawCircle(ctx, v, state.phase, g);
+      });
+
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+
+  </script>
+</body>
+</html>
